@@ -18,12 +18,27 @@ crates:
           - "201010102"
           - "201111102"
           - "222222222"
+      rewards: # Where to put rewards in the GUI
+        - id: diamond_sword # The reward ID
+          row: 3 # The row
+          column: 2 # The column
+        - id: stack_of_emeralds
+          row: 4
+          column: 2
+        - id: bedrock
+          row: 3
+          column: 2
+        - id: 1000_coins
+          row: 5
+          column: 2
 
     key: # The physical key to be given to players
       item: tripwire_hook unbreaking:1 hide_enchants name:"&aDemo Crate Key" # The item
       lore: # Lore for the key to have
         - "&fUse this key to open"
         - "&fthe <g:#56ab2f>Demo Crate</g:#a8e063>"
+      use-custom-item: false # Set this to true in order to use a custom item as the key;
+      # For example making all ecoitems:blue_shards function as keys. This will prevent lore from being applied.
 
     keygui: # Options for showing up in /crate keys
       enabled: true # If the crate should be in the key gui

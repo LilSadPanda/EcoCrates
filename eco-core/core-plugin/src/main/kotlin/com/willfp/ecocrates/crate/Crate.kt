@@ -12,6 +12,7 @@ import com.willfp.eco.core.gui.slot.FillerMask
 import com.willfp.eco.core.gui.slot.MaskItems
 import com.willfp.eco.core.items.CustomItem
 import com.willfp.eco.core.items.Items
+import com.willfp.eco.core.items.TestableItem
 import com.willfp.eco.core.items.builder.ItemStackBuilder
 import com.willfp.eco.core.placeholder.PlayerPlaceholder
 import com.willfp.eco.util.NumberUtils
@@ -74,12 +75,18 @@ class Crate(
         )
     }
 
-    val key = CustomItem(
-        plugin.namespacedKeyFactory.create("${id}_key"),
-        { it.getAsKey() == this },
-        Items.lookup(config.getString("key.item")).item
-            .clone().apply { setAsKeyFor(this@Crate) }
-    ).apply { register() }
+    val keyIsCustomItem = config.getBool("key.use-custom-item")
+
+    val key: TestableItem = if (keyIsCustomItem) {
+        Items.lookup(config.getString("key.item"))
+    } else {
+        CustomItem(
+            plugin.namespacedKeyFactory.create("${id}_key"),
+            { it.getAsKey() == this },
+            Items.lookup(config.getString("key.item")).item
+                .clone().apply { setAsKeyFor(this@Crate) }
+        ).apply { register() }
+    }
 
     val keyLore = config.getFormattedStrings("key.lore")
 
@@ -96,6 +103,16 @@ class Crate(
         }
 
     val canReroll = config.getBool("can-reroll")
+
+    val rerollPermission: Permission =
+        Bukkit.getPluginManager().getPermission("ecocrates.reroll.$id") ?: Permission(
+            "ecocrates.reroll.$id",
+            "Allows rerolling the $id crate",
+            PermissionDefault.TRUE
+        ).apply {
+            addParent(Bukkit.getPluginManager().getPermission("ecocrates.reroll.*")!!, true)
+            Bukkit.getPluginManager().addPermission(this)
+        }
 
     val canPayToOpen = config.getBool("pay-to-open.enabled")
 
@@ -125,10 +142,34 @@ class Crate(
 
         setTitle(config.getFormattedString("preview.title"))
 
+        /*
+        Legacy reward config.
+         */
         for (reward in rewards) {
+            if (reward.displayRow == null || reward.displayColumn == null) {
+                continue
+            }
+
             setSlot(
                 reward.displayRow,
                 reward.displayColumn,
+                slot(reward.getDisplay()) {
+                    setUpdater { player, _, _ -> reward.getDisplay(player, this@Crate) }
+                }
+            )
+        }
+
+        /*
+        Modern reward config.
+         */
+        for (previewReward in config.getSubsections("preview.rewards")) {
+            val reward = Rewards.getByID(previewReward.getString("id")) ?: continue
+            val row = previewReward.getInt("row")
+            val column = previewReward.getInt("column")
+
+            setSlot(
+                row,
+                column,
                 slot(reward.getDisplay()) {
                     setUpdater { player, _, _ -> reward.getDisplay(player, this@Crate) }
                 }
@@ -373,7 +414,7 @@ class Crate(
                 it.cancel()
                 roll.onFinish()
                 player.isOpeningCrate = false
-                if (!canReroll || roll.isReroll) handleFinish(roll) else ReRollGUI.open(roll)
+                if (!canReroll(player) || roll.isReroll) handleFinish(roll) else ReRollGUI.open(roll)
             }
         }.runTaskTimer(1, 1)
 
@@ -410,6 +451,14 @@ class Crate(
             .map { it.replace("%player%", player.savedDisplayName) }
             .map { plugin.langYml.prefix + StringUtils.format(it, player) }
             .forEach { Bukkit.broadcastMessage(it) }
+    }
+
+    fun canReroll(player: Player): Boolean {
+        if (!canReroll) {
+            return false
+        }
+
+        return player.hasPermission(rerollPermission)
     }
 
     fun adjustVirtualKeys(player: OfflinePlayer, amount: Int) {

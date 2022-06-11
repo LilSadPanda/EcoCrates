@@ -2,14 +2,15 @@ package com.willfp.ecocrates.converters.impl
 
 import com.willfp.eco.core.config.BuildableConfig
 import com.willfp.eco.core.config.interfaces.Config
+import com.willfp.eco.core.items.toLookupString
 import com.willfp.ecocrates.EcoCratesPlugin
 import com.willfp.ecocrates.converters.Converter
 import com.willfp.ecocrates.converters.util.ConversionHelpers
-import com.willfp.ecocrates.converters.util.toLookupString
 import com.willfp.ecocrates.crate.Crates
 import com.willfp.ecocrates.crate.placed.PlacedCrates
 import org.bukkit.Location
 import su.nightexpress.excellentcrates.ExcellentCrates
+import su.nightexpress.excellentcrates.ExcellentCratesAPI
 import su.nightexpress.excellentcrates.api.OpenCostType
 import su.nightexpress.excellentcrates.api.crate.ICrate
 import su.nightexpress.excellentcrates.api.crate.ICrateReward
@@ -19,7 +20,7 @@ class ExcellentCratesConverter(private val plugin: EcoCratesPlugin) : Converter 
     override val id = "ExcellentCrates"
 
     override fun convert() {
-        val newCrates = ExcellentCrates.getInstance().crateManager.crates.map { convertCrate(it) }
+        val newCrates = ExcellentCratesAPI.getCrateManager().crates.map { convertCrate(it) }
 
         val crates = plugin.cratesYml.getSubsections("crates").toMutableList()
 
@@ -30,7 +31,7 @@ class ExcellentCratesConverter(private val plugin: EcoCratesPlugin) : Converter 
         plugin.rewardsYml.save()
         plugin.reload()
 
-        ExcellentCrates.getInstance().crateManager.crates.forEach {
+        ExcellentCratesAPI.getCrateManager().crates.forEach {
             val jank = mutableListOf<Location>()
             jank.addAll(it.blockLocations)
             jank.forEach { it1 -> it.removeBlockLocation(it1) }
@@ -53,7 +54,7 @@ class ExcellentCratesConverter(private val plugin: EcoCratesPlugin) : Converter 
         }
 
         if (crate.keyIds.isNotEmpty()) {
-            val key = ExcellentCrates.getInstance().keyManager.getKeyById(crate.keyIds.first())!!
+            val key = ExcellentCratesAPI.getKeyManager().getKeyById(crate.keyIds.first())!!
             result.set("key.item", key.item.toLookupString())
             result.set("key.lore", key.item.itemMeta?.lore)
         } else {
@@ -81,7 +82,7 @@ class ExcellentCratesConverter(private val plugin: EcoCratesPlugin) : Converter 
         var counter = 1
         crate.rewards.forEach {
             val salt = id + "_" + counter
-            newRewards.add(convertReward(it, salt, row, col))
+            newRewards.add(convertReward(it, salt, row, col, result))
             col++
             if (col >= 8) {
                 col = 2
@@ -105,7 +106,7 @@ class ExcellentCratesConverter(private val plugin: EcoCratesPlugin) : Converter 
         return result
     }
 
-    private fun convertReward(reward: ICrateReward, salt: String, row: Int, col: Int): Config {
+    private fun convertReward(reward: ICrateReward, salt: String, row: Int, col: Int, crateConfig: Config): Config {
         val result = ConversionHelpers.createEmptyReward()
 
         result.set("id", salt)
@@ -128,8 +129,15 @@ class ExcellentCratesConverter(private val plugin: EcoCratesPlugin) : Converter 
         result.set("display.name", reward.name)
         result.set("display.item", reward.preview.toLookupString())
         result.set("display.lore", meta?.lore)
-        result.set("display.row", row)
-        result.set("display.column", col)
+
+        val rewards = crateConfig.getSubsections("preview.rewards").toMutableList()
+        rewards.add(
+            BuildableConfig()
+                .add("id", salt)
+                .add("row", row)
+                .add("column", col)
+        )
+        crateConfig.set("preview.rewards", rewards)
 
         return result
     }

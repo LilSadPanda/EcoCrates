@@ -11,15 +11,19 @@ import com.willfp.eco.core.items.Items
 import com.willfp.eco.core.items.builder.ItemStackBuilder
 import com.willfp.eco.core.placeholder.PlayerPlaceholder
 import com.willfp.eco.core.recipe.parts.EmptyTestableItem
+import com.willfp.eco.core.recipe.parts.MaterialTestableItem
 import com.willfp.eco.util.formatEco
 import com.willfp.eco.util.toNiceString
 import com.willfp.ecocrates.crate.Crate
 import com.willfp.ecocrates.crate.PermissionMultipliers
 import org.bukkit.Bukkit
+import org.bukkit.Material
 import org.bukkit.OfflinePlayer
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
-import java.util.Objects
+import org.bukkit.permissions.Permission
+import org.bukkit.permissions.PermissionDefault
+import java.util.*
 
 class Reward(
     private val plugin: EcoPlugin,
@@ -32,6 +36,19 @@ class Reward(
     private val items = config.getStrings("items").map { Items.lookup(it) }.filterNot { it is EmptyTestableItem }
 
     private val messages = config.getFormattedStrings("messages")
+
+    private val permission = Permission(
+        "ecocrates.reward.$id",
+        "Allows getting $id as a reward",
+        PermissionDefault.TRUE
+    ).apply {
+        if (Bukkit.getPluginManager().getPermission("ecocrates.reward.*") == null) {
+            addParent("ecocrates.reward.*", true)
+        }
+        if (Bukkit.getPluginManager().getPermission("ecocrates.reward.$id") == null) {
+            Bukkit.getPluginManager().addPermission(this)
+        }
+    }
 
     private val maxWins = config.getInt("max-wins")
 
@@ -46,22 +63,37 @@ class Reward(
 
     private val canPermissionMultiply = config.getBool("weight.permission-multipliers")
 
-    private val baseDisplay = ItemStackBuilder(Items.lookup(config.getString("display.item")))
-        .setDisplayName(config.getString("display.name"))
+    private val baseDisplay = ItemStackBuilder(
+        Items.lookup(config.getString("display.item"))
+            .let { if (it is EmptyTestableItem) MaterialTestableItem(Material.STONE) else it }
+    ).setDisplayName(config.getString("display.name"))
         .build()
 
     fun getDisplay(player: Player, crate: Crate): ItemStack {
         val item = baseDisplay.clone()
         val fis = FastItemStack.wrap(item)
-        fis.lore = config.getStrings("display.lore").map {
+        val lore = config.getStrings("display.lore").map {
             it.replace(
                 "%chance%",
                 getPercentageChance(player, crate.rewards, displayWeight = true).toNiceString()
             ).replace(
                 "%actual_chance%",
                 getPercentageChance(player, crate.rewards, displayWeight = false).toNiceString()
+            ).replace(
+                "%weight%",
+                this.getDisplayWeight(player).toNiceString()
+            ).replace(
+                "%actual_weight%",
+                this.getWeight(player).toNiceString()
             ).formatEco(player)
         }
+
+        if (config.getBool("display.dont-keep-lore")) {
+            fis.lore = lore
+        } else {
+            fis.lore = fis.lore + lore
+        }
+
         return item
     }
 
@@ -76,6 +108,9 @@ class Reward(
                 return 0.0
             }
         }
+        if (!player.hasPermission(permission)) {
+            return 0.0
+        }
         return weight
     }
 
@@ -85,6 +120,9 @@ class Reward(
             if (player.profile.read(winsKey) >= maxWins) {
                 return 0.0
             }
+        }
+        if (!player.hasPermission(permission)) {
+            return 0.0
         }
         return weight
     }
@@ -107,9 +145,9 @@ class Reward(
         return (weight / totalWeight) * 100
     }
 
-    val displayRow = config.getInt("display.row")
-
-    val displayColumn = config.getInt("display.column")
+    // Legacy
+    val displayRow = config.getIntOrNull("display.row")
+    val displayColumn = config.getIntOrNull("display.column")
 
     val displayName = config.getFormattedString("display.name")
 

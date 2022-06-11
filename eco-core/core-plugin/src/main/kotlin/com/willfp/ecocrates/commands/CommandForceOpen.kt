@@ -4,6 +4,7 @@ import com.willfp.eco.core.EcoPlugin
 import com.willfp.eco.core.command.impl.Subcommand
 import com.willfp.ecocrates.crate.Crates
 import com.willfp.ecocrates.crate.OpenMethod
+import org.bukkit.Bukkit
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import org.bukkit.util.StringUtil
@@ -12,24 +13,36 @@ class CommandForceOpen(plugin: EcoPlugin) : Subcommand(
     plugin,
     "forceopen",
     "ecocrates.command.forceopen",
-    true
+    false
 ) {
-    override fun onExecute(player: CommandSender, args: List<String>) {
-        player as Player
+    override fun onExecute(sender: CommandSender, args: List<String>) {
+        var player = sender
 
         if (args.isEmpty()) {
-            player.sendMessage(plugin.langYml.getMessage("must-specify-crate"))
+            sender.sendMessage(plugin.langYml.getMessage("must-specify-crate"))
             return
         }
 
         val crate = Crates.getByID(args[0])
 
         if (crate == null) {
-            player.sendMessage(plugin.langYml.getMessage("invalid-crate"))
+            sender.sendMessage(plugin.langYml.getMessage("invalid-crate"))
             return
         }
 
-        crate.open(player, OpenMethod.OTHER)
+        if (args.size >= 2 && sender.hasPermission("ecocrates.command.forceopen.others")) {
+            val specificPlayer = Bukkit.getPlayer(args[1])
+
+            if (specificPlayer == null) {
+                sender.sendMessage(plugin.langYml.getMessage("invalid-player"))
+                return
+            }
+
+            player = specificPlayer
+        }
+        if (player is Player) {
+            crate.open(player, OpenMethod.OTHER)
+        }
     }
 
     override fun tabComplete(sender: CommandSender, args: List<String>): List<String> {
@@ -43,6 +56,16 @@ class CommandForceOpen(plugin: EcoPlugin) : Subcommand(
             StringUtil.copyPartialMatches(
                 args[0],
                 Crates.values().map { it.id },
+                completions
+            )
+
+            return completions
+        }
+
+        if (args.size == 2 && sender.hasPermission("ecocrates.command.forceopen.others")) {
+            StringUtil.copyPartialMatches(
+                args[1],
+                Bukkit.getOnlinePlayers().map { it.name },
                 completions
             )
 

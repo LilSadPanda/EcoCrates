@@ -42,21 +42,6 @@ class PlacedCrate(
         item?.remove()
     }
 
-    private fun spawnRandomReward() {
-        if ((item == null || item?.isDead == true) && crate.isShowingRandomReward) {
-            val entity = world.dropItem(
-                location.clone().add(0.0, crate.randomRewardHeight, 0.0),
-                crate.rewards.first().getDisplay()
-            )
-            entity.velocity = Vector(0.0, 0.0, 0.0)
-            entity.pickupDelay = Int.MAX_VALUE
-            entity.setGravity(false)
-            entity.isCustomNameVisible = true
-            entity.customName = crate.randomRewardName
-            item = entity
-        }
-    }
-
     private fun tickHolograms(tick: Int) {
         var frameToShow: HologramFrame? = null
 
@@ -73,17 +58,49 @@ class PlacedCrate(
     }
 
     private fun tickRandomReward(tick: Int) {
+        if (!crate.isShowingRandomReward || crate.rewards.isEmpty()) {
+            return
+        }
+
+        fun ensureItemSpawned() {
+            if (item == null) {
+                val scan = world.getNearbyEntities(
+                    location.clone().add(0.0, crate.randomRewardHeight, 0.0),
+                    0.5, 0.5, 0.5
+                ).filterIsInstance<Item>().firstOrNull { !it.hasGravity() }
+
+                if (scan != null) {
+                    item = scan
+                }
+            }
+
+            if (item == null || item?.isDead == true) {
+                val entity = world.dropItem(
+                    location.clone().add(0.0, crate.randomRewardHeight, 0.0),
+                    crate.rewards.first().getDisplay()
+                )
+                entity.velocity = Vector(0.0, 0.0, 0.0)
+                entity.pickupDelay = Int.MAX_VALUE
+                entity.setGravity(false)
+                entity.isCustomNameVisible = true
+                entity.customName = crate.randomRewardName
+                item = entity
+            }
+        }
+
         if (tick % crate.randomRewardDelay == 0) {
-            item?.remove()
-            item = null
-            spawnRandomReward()
+            /*
+            Spawn item if item is gone
+             */
+            ensureItemSpawned()
+
             item?.itemStack = crate.rewards.random().getDisplay()
             item?.teleport(location.clone().add(0.0, crate.randomRewardHeight, 0.0))
         }
     }
 
     private fun tickParticles(tick: Int) {
-        for ((particle, animation) in crate.particles) {
+        for ((particle, animation) in crate.particles.toList()) { // Anti ConcurrentModification
             animation.spawnParticle(location, tick, particle)
         }
     }

@@ -8,7 +8,7 @@ class CommandEcoCrates(plugin: EcoPlugin) : PluginCommand(
     plugin,
     "ecocrates",
     "ecocrates.command.ecocrates",
-    true
+    false
 ) {
     init {
         this.addSubcommand(CommandReload(plugin))
@@ -20,6 +20,7 @@ class CommandEcoCrates(plugin: EcoPlugin) : PluginCommand(
             .addSubcommand(CommandForceOpen(plugin))
             .addSubcommand(CommandResetWins(plugin))
             .addSubcommand(CommandConvert(plugin))
+            .addSubcommand(CommandGiveall(plugin))
     }
 
     override fun onExecute(sender: CommandSender, args: List<String>) {

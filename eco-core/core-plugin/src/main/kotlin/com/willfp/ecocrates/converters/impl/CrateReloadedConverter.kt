@@ -5,10 +5,10 @@ import com.hazebyte.crate.api.crate.reward.Reward
 import com.willfp.eco.core.config.BuildableConfig
 import com.willfp.eco.core.config.TransientConfig
 import com.willfp.eco.core.config.interfaces.Config
+import com.willfp.eco.core.items.toLookupString
 import com.willfp.ecocrates.EcoCratesPlugin
 import com.willfp.ecocrates.converters.Converter
 import com.willfp.ecocrates.converters.util.ConversionHelpers
-import com.willfp.ecocrates.converters.util.toLookupString
 import com.willfp.ecocrates.crate.Crates
 import com.willfp.ecocrates.crate.placed.PlacedCrates
 import com.willfp.ecocrates.crate.roll.Rolls
@@ -85,7 +85,7 @@ class CrateReloadedConverter(
 
         crateToConvert.rewards.forEach {
             val salt = id + "_" + counter
-            newRewards.add(convertReward(it, salt, row, col))
+            newRewards.add(convertReward(it, salt, row, col, crateConfig))
             col++
             if (col >= 8) {
                 col = 2
@@ -181,7 +181,7 @@ class CrateReloadedConverter(
         return crateConfig
     }
 
-    private fun convertReward(reward: Reward, salt: String, row: Int, col: Int): Config {
+    private fun convertReward(reward: Reward, salt: String, row: Int, col: Int, crateConfig: Config): Config {
         val resultConfig = ConversionHelpers.createEmptyReward()
 
         resultConfig.set("id", salt)
@@ -204,8 +204,15 @@ class CrateReloadedConverter(
         resultConfig.set("display.name", reward.displayItem.itemMeta?.displayName)
         resultConfig.set("display.item", reward.displayItem.toLookupString())
         resultConfig.set("display.lore", reward.displayItem.itemMeta?.lore)
-        resultConfig.set("display.row", row)
-        resultConfig.set("display.column", col)
+
+        val rewards = crateConfig.getSubsections("preview.rewards").toMutableList()
+        rewards.add(
+            BuildableConfig()
+                .add("id", salt)
+                .add("row", row)
+                .add("column", col)
+        )
+        crateConfig.set("preview.rewards", rewards)
 
         return resultConfig
     }

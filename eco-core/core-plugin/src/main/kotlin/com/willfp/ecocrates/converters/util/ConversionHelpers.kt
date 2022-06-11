@@ -2,8 +2,6 @@ package com.willfp.ecocrates.converters.util
 
 import com.willfp.eco.core.config.TransientConfig
 import com.willfp.eco.core.config.interfaces.Config
-import com.willfp.eco.core.items.Items
-import org.bukkit.inventory.ItemStack
 
 object ConversionHelpers {
     fun createEmptyReward(): Config {
@@ -26,8 +24,6 @@ object ConversionHelpers {
                 this.set("name", "Unknown Reward")
                 this.set("item", "stone")
                 this.set("lore", emptyList<String>())
-                this.set("row", 1)
-                this.set("column", 1)
             }
         )
 
@@ -59,6 +55,7 @@ object ConversionHelpers {
                 )
             }
             this.set("mask", mask)
+            this.set("rewards", emptyList<Config>())
         }
 
         result.set("preview", preview)
@@ -141,33 +138,4 @@ object ConversionHelpers {
 
         return result
     }
-}
-
-fun ItemStack.toLookupString(): String {
-    val custom = Items.getCustomItem(this)
-    if (custom != null) {
-        return "${custom.key.namespace}:${custom.key.key} ${this.amount}"
-    }
-
-    var result = "${this.type.name.lowercase()} ${this.amount}"
-
-    val meta = this.itemMeta ?: return result
-
-    meta.enchants.forEach { (enchant, level) ->
-        result += " ${enchant.key.key}:${level}"
-    }
-
-    if (meta.hasDisplayName()) {
-        result += " name:\"${meta.displayName}\""
-    }
-
-    if (meta.hasCustomModelData()) {
-        result += " custom-model-data:${meta.customModelData}"
-    }
-
-    meta.itemFlags.forEach {
-        result += " ${it.name.lowercase()}"
-    }
-
-    return result
 }
